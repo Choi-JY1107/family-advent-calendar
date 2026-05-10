@@ -1,89 +1,80 @@
-<script>
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from './assets/vite.svg'
-  import heroImg from './assets/hero.png'
-  import Counter from './lib/Counter.svelte'
+<script lang="ts">
+  import { onMount } from 'svelte'
+  import Landing from './lib/Landing.svelte'
+  import CreateForm from './lib/CreateForm.svelte'
+  import MemberPicker from './lib/MemberPicker.svelte'
+  import Calendar from './lib/Calendar.svelte'
+  import Book from './lib/Book.svelte'
+  import { loadMember } from './lib/store'
+  import { getCalendarBySlug } from './lib/db'
+  import type { Calendar as CalendarT, Member } from './lib/types'
+
+  type Route = 'loading' | 'landing' | 'create' | 'pick-member' | 'calendar' | 'book' | 'not-found'
+
+  let route = $state<Route>('loading')
+  let calendar = $state<CalendarT | null>(null)
+  let member = $state<Member | null>(null)
+  let isDev = $state(false)
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('id')
+    const mode = params.get('mode')
+    isDev = params.get('dev') === '1'
+
+    if (mode === 'create' && !id) {
+      route = 'create'
+      return
+    }
+
+    if (!id) {
+      route = 'landing'
+      return
+    }
+
+    try {
+      const cal = await getCalendarBySlug(id)
+      if (!cal) {
+        route = 'not-found'
+        return
+      }
+      calendar = cal
+      const mem = loadMember(id, cal)
+      if (!mem) {
+        route = 'pick-member'
+        return
+      }
+      member = mem
+      route = mode === 'book' ? 'book' : 'calendar'
+    } catch (e) {
+      console.error(e)
+      route = 'not-found'
+    }
+  }
+
+  function onMemberPicked(m: Member) {
+    member = m
+    route = 'calendar'
+  }
+
+  onMount(init)
 </script>
 
-<section id="center">
-  <div class="hero">
-    <img src={heroImg} class="base" width="170" height="179" alt="" />
-    <img src={svelteLogo} class="framework" alt="Svelte logo" />
-    <img src={viteLogo} class="vite" alt="Vite logo" />
+{#if route === 'loading'}
+  <div class="app__loading">로딩…</div>
+{:else if route === 'landing'}
+  <Landing />
+{:else if route === 'create'}
+  <CreateForm />
+{:else if route === 'pick-member' && calendar}
+  <MemberPicker {calendar} onPick={onMemberPicked} />
+{:else if route === 'calendar' && calendar && member}
+  <Calendar {calendar} {member} {isDev} />
+{:else if route === 'book' && calendar}
+  <Book {calendar} />
+{:else if route === 'not-found'}
+  <div class="app__not-found">
+    <p>캘린더를 찾을 수 없어요.</p>
+    <a href="/">처음으로</a>
   </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/App.svelte</code> and save to test <code>HMR</code></p>
-  </div>
-  <Counter />
-</section>
-
-<div class="ticks"></div>
-
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#documentation-icon"></use>
-    </svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank" rel="noreferrer">
-          <img class="logo" src={viteLogo} alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://svelte.dev/" target="_blank" rel="noreferrer">
-          <img class="button-icon" src={svelteLogo} alt="" />
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#social-icon"></use>
-    </svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li>
-        <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#github-icon"></use>
-          </svg>
-          GitHub
-        </a>
-      </li>
-      <li>
-        <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#discord-icon"></use>
-          </svg>
-          Discord
-        </a>
-      </li>
-      <li>
-        <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#x-icon"></use>
-          </svg>
-          X.com
-        </a>
-      </li>
-      <li>
-        <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#bluesky-icon"></use>
-          </svg>
-          Bluesky
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
-
-<div class="ticks"></div>
-<section id="spacer"></section>
+{/if}
