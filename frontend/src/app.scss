@@ -627,6 +627,11 @@ a {
     font-size: 13px;
     color: $muted;
     cursor: pointer;
+
+    > span {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
   }
 
   &__file {
